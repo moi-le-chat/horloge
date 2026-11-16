@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horloge</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #050608;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .force-field-glow {
+            position: absolute;
+            width: 700px;
+            height: 350px;
+            background: radial-gradient(ellipse at center, rgba(0, 4, 253, 0.2) 0%, rgba(168, 85, 247, 0.08) 45%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            border-radius: 50%;
+            filter: blur(50px);
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+
+<body class="w-screen h-screen relative flex flex-col justify-between items-center text-white p-6">
+
+    <div id="fieldGlow" class="force-field-glow opacity-0"></div>
+
+    <main class="absolute inset-0 w-full h-full">
+        <canvas id="clockCanvas" class="w-full h-full block"></canvas>
+    </main>
+
+    <footer
+        class="z-10 flex flex-wrap gap-3 sm:gap-4 items-center justify-center bg-white/5 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full text-xs text-gray-300 shadow-2xl">
+        <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+            <span id="timeDisplay" class="mono text-sm font-bold tracking-widest text-cyan-300">--:--:--</span>
+        </div>
+        <div class="h-4 w-[1px] bg-white/20"></div>
+        <button id="toggleFormatBtn" class="hover:text-white transition-colors cursor-pointer">
+            Format : <span id="formatStatus" class="text-indigo-400 font-bold">24H</span>
+        </button>
+        <div class="h-4 w-[1px] bg-white/20"></div>
+        <button id="addDigitsBtn" class="hover:text-white transition-colors cursor-pointer">
+            Densité : <span id="densityStatus" class="text-purple-400 font-bold">Standard</span>
+        </button>
+        <div class="h-4 w-[1px] bg-white/20"></div>
+        <button id="toggleGlowBtn" class="hover:text-white transition-colors cursor-pointer">
+            Glow : <span id="glowStatus" class="text-gray-500 font-bold">Désactivé</span>
+        </button>
+        <div class="h-4 w-[1px] bg-white/20"></div>
+        <button id="toggleTrailBtn" class="hover:text-white transition-colors cursor-pointer">
+            Trail : <span id="trailStatus" class="text-gray-500 font-bold">Désactivé</span>
+        </button>
+        <div class="h-4 w-[1px] bg-white/20"></div>
+        <button id="toggleTypeBtn" class="hover:text-white transition-colors cursor-pointer">
+            Animation : <span id="animStatus" class="text-orange-400 font-bold">Simple</span>
+        </button>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('clockCanvas');
+        const ctx = canvas.getContext('2d', { alpha: true });
+        const timeDisplay = document.getElementById('timeDisplay');
+        const fieldGlow = document.getElementById('fieldGlow');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        // Paramètres
+        let use24h = true;
+        let particleCount = 130;
+        let glowActive = false;
+        let trailActive = false;
+        let animType = 1;
+        let particles = [];
+        let targetPositions = [];
+        let activeSlots = new Array(8).fill(null);
+        let fieldBounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+        let currentTargetFontSize = 48;
+
+        const pointer = { x: -1000, y: -1000, active: false };
+        const colors = ['#38bdf8', '#818cf8', '#c084fc', '#f472b6', '#34d399', '#fbbf24', '#a78bfa', '#94a3b8'];
+        const symbols = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':'];
+
+        const spriteCache = new Map();
+
+        function getGlowSprite(val, color, isTargeted) {
+            const key = `${val}_${isTargeted ? 'white' : color}`;
+            if (spriteCache.has(key)) return spriteCache.get(key);
+
+            const size = 128;
+            const fontSize = isTargeted ? 64 : 44;
+            const offCanvas = document.createElement('canvas');
+            offCanvas.width = size;
+            offCanvas.height = size;
+            const oCtx = offCanvas.getContext('2d');
+
+            oCtx.font = `${isTargeted ? '700' : '400'} ${fontSize}px 'JetBrains Mono', monospace`;
+            oCtx.textAlign = 'center';
+            oCtx.textBaseline = 'middle';
+
+            if (isTargeted) {
+                // Glow doux et lisible pour les chiffres blancs du milieu
+                oCtx.shadowColor = 'rgba(199, 210, 254, 0.75)';
+                oCtx.shadowBlur = 12;
+                oCtx.fillStyle = '#ffffff';
+                oCtx.fillText(val, size / 2, size / 2);
+            } else {
+                // Glow coloré pour les particules flottantes
+                oCtx.shadowColor = color;
+                oCtx.shadowBlur = 14;
+                oCtx.fillStyle = color;
+                oCtx.fillText(val, size / 2, size / 2);
+                oCtx.fillText(val, size / 2, size / 2);
+            }
+
+            const spriteData = { canvas: offCanvas, baseFont: fontSize, boxSize: size };
+            spriteCache.set(key, spriteData);
+            return spriteData;
+        }
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            updateTargetPositions();
+        }
+
+        class Particle {
+            constructor() {
+                this.history = []; // Stocke les positions passées pour un trail sans résidu OLED
+                this.reset();
+            }
+
+            reset() {
+                this.val = Math.random() < 0.12 ? ':' : String(Math.floor(Math.random() * 10));
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = (Math.random() - 0.5) * 3;
+                this.baseSize = Math.random() * 16 + 14;
+                this.size = this.baseSize;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.alpha = Math.random() * 0.5 + 0.35;
+                this.history.length = 0;
+
+                this.isTargeted = false;
+                this.slotIndex = -1;
+                this.targetX = 0;
+                this.targetY = 0;
+                this.easeSpeed = 0.14;
+                this.angle = (Math.random() - 0.5) * 0.4;
+                this.cooldown = 0;
+            }
+
+            expel(centerX, centerY, withCooldown) {
+                this.isTargeted = false;
+                this.slotIndex = -1;
+                const angle = Math.atan2(this.y - centerY, this.x - centerX) + (Math.random() - 0.5) * 0.8;
+                const force = 7 + Math.random() * 6;
+                this.vx = Math.cos(angle) * force;
+                this.vy = Math.sin(angle) * force;
+                this.cooldown = withCooldown ? 45 : 15;
+            }
+
+            update(dt) {
+                // Enregistrement de la trajectoire si le trail est actif
+                if (trailActive) {
+                    this.history.push({ x: this.x, y: this.y, angle: this.angle, size: this.size });
+                    if (this.history.length > 6) {
+                        this.history.shift();
+                    }
+                } else if (this.history.length > 0) {
+                    this.history.length = 0;
+                }
+
+                if (this.cooldown > 0) this.cooldown -= dt;
+
+                if (this.isTargeted) {
+                    const ease = 1 - Math.pow(1 - this.easeSpeed, dt);
+                    this.x += (this.targetX - this.x) * ease;
+                    this.y += (this.targetY - this.y) * ease;
+                    this.size += (currentTargetFontSize - this.size) * ease;
+                    this.alpha += (1.0 - this.alpha) * ease;
+                    this.angle += (0 - this.angle) * ease;
+                    return;
+                }
+
+                const closestX = Math.max(fieldBounds.minX, Math.min(this.x, fieldBounds.maxX));
+                const closestY = Math.max(fieldBounds.minY, Math.min(this.y, fieldBounds.maxY));
+                const dx = this.x - closestX;
+                const dy = this.y - closestY;
+                const distSq = dx * dx + dy * dy;
+                const influenceRadius = 70;
+
+                if (distSq < influenceRadius * influenceRadius && distSq > 0.001) {
+                    const dist = Math.sqrt(distSq);
+                    const factor = (1 - dist / influenceRadius) * dt;
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const tx = -ny;
+                    const ty = nx;
+                    const dir = (this.vx * tx + this.vy * ty) >= 0 ? 1 : -1;
+
+                    this.vx += (nx * 0.8 + tx * dir * 0.6) * factor;
+                    this.vy += (ny * 0.8 + ty * dir * 0.6) * factor;
+                    this.vx *= 0.96;
+                    this.vy *= 0.96;
+                }
+
+                if (pointer.active) {
+                    const mdx = this.x - pointer.x;
+                    const mdy = this.y - pointer.y;
+                    const mDistSq = mdx * mdx + mdy * mdy;
+                    if (mDistSq < 14400 && mDistSq > 1) {
+                        const mDist = Math.sqrt(mDistSq);
+                        const push = (1 - mDist / 120) * 1.5 * dt;
+                        this.vx += (mdx / mDist) * push;
+                        this.vy += (mdy / mDist) * push;
+                    }
+                }
+
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                const speedSq = this.vx * this.vx + this.vy * this.vy;
+                if (speedSq > 144) {
+                    this.vx *= 0.92;
+                    this.vy *= 0.92;
+                }
+
+                if (this.x < 20) { this.x = 20; this.vx *= -1; }
+                else if (this.x > width - 20) { this.x = width - 20; this.vx *= -1; }
+
+                if (this.y < 20) { this.y = 20; this.vy *= -1; }
+                else if (this.y > height - 20) { this.y = height - 20; this.vy *= -1; }
+
+                const relax = 1 - Math.pow(0.92, dt);
+                this.size += (this.baseSize - this.size) * relax;
+                this.alpha += (0.45 - this.alpha) * relax;
+                this.angle += this.vx * 0.01 * dt;
+            }
+
+            drawSymbol(x, y, angle, size, alpha) {
+                ctx.translate(x, y);
+                if (!this.isTargeted) ctx.rotate(angle);
+                ctx.globalAlpha = alpha;
+
+                if (glowActive) {
+                    const sprite = getGlowSprite(this.val, this.color, this.isTargeted);
+                    const scale = size / sprite.baseFont;
+                    const drawSize = sprite.boxSize * scale;
+                    ctx.drawImage(sprite.canvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+                } else {
+                    ctx.font = `${this.isTargeted ? '700' : '400'} ${size | 0}px 'JetBrains Mono', monospace`;
+                    ctx.fillStyle = this.isTargeted ? '#ffffff' : this.color;
+                    ctx.fillText(this.val, 0, 0);
+                }
+
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            draw() {
+                // Dessin de la traînée (fantômes géométriques avec alpha exact)
+                if (trailActive && this.history.length > 0) {
+                    const len = this.history.length;
+                    for (let i = 0; i < len; i++) {
+                        const pos = this.history[i];
+                        const trailAlpha = ((i + 1) / (len + 1)) * this.alpha * 0.35;
+                        this.drawSymbol(pos.x, pos.y, pos.angle, pos.size, trailAlpha);
+                    }
+                }
+
+                // Dessin de la particule principale
+                this.drawSymbol(this.x, this.y, this.angle, this.size, this.alpha);
+            }
+        }
+
+        function initParticles() {
+            particles = Array.from({ length: particleCount }, () => new Particle());
+            activeSlots.fill(null);
+        }
+
+        function updateTargetPositions() {
+            currentTargetFontSize = Math.min(width * 0.07, 64);
+            const spacing = currentTargetFontSize * 0.85;
+            const colonSpacing = currentTargetFontSize * 0.55;
+
+            const totalWidth = (6 * spacing) + (2 * colonSpacing);
+            const startX = (width - totalWidth) / 2 + spacing / 2;
+            const centerY = height / 2;
+
+            targetPositions = [
+                { x: startX, y: centerY },
+                { x: startX + spacing, y: centerY },
+                { x: startX + 1.5 * spacing + colonSpacing / 2, y: centerY },
+                { x: startX + 2.5 * spacing + colonSpacing, y: centerY },
+                { x: startX + 3.5 * spacing + colonSpacing, y: centerY },
+                { x: startX + 4.0 * spacing + 1.5 * colonSpacing, y: centerY },
+                { x: startX + 5.0 * spacing + 2 * colonSpacing, y: centerY },
+                { x: startX + 6.0 * spacing + 2 * colonSpacing, y: centerY }
+            ];
+
+            fieldBounds = {
+                minX: targetPositions[0].x - spacing,
+                maxX: targetPositions[7].x + spacing,
+                minY: centerY - currentTargetFontSize * 0.9,
+                maxY: centerY + currentTargetFontSize * 0.9
+            };
+
+            activeSlots.forEach((p, idx) => {
+                if (p && targetPositions[idx]) {
+                    p.targetX = targetPositions[idx].x;
+                    p.targetY = targetPositions[idx].y;
+                }
+            });
+        }
+
+        function recycleAndAssignClock(forceAll = false) {
+            const now = new Date();
+            let hours = now.getHours();
+            if (!use24h) hours = hours % 12 || 12;
+
+            const hStr = String(hours).padStart(2, '0');
+            const mStr = String(now.getMinutes()).padStart(2, '0');
+            const sStr = String(now.getSeconds()).padStart(2, '0');
+
+            timeDisplay.textContent = `${hStr}:${mStr}:${sStr}`;
+
+            const timePattern = [hStr[0], hStr[1], ':', mStr[0], mStr[1], ':', sStr[0], sStr[1]];
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const fullExplosion = forceAll || animType === 2;
+
+            timePattern.forEach((neededSymbol, slotIdx) => {
+                const currentParticle = activeSlots[slotIdx];
+
+                if (!fullExplosion && currentParticle && currentParticle.val === neededSymbol) {
+                    return;
+                }
+
+                if (currentParticle) {
+                    currentParticle.expel(centerX, centerY, fullExplosion);
+                    activeSlots[slotIdx] = null;
+                }
+
+                const target = targetPositions[slotIdx];
+                let candidate = null;
+                let minDistSq = Infinity;
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    if (!p.isTargeted && p.cooldown <= 0 && p.val === neededSymbol) {
+                        const dx = p.x - target.x;
+                        const dy = p.y - target.y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < minDistSq) {
+                            minDistSq = distSq;
+                            candidate = p;
+                        }
+                    }
+                }
+
+                if (!candidate) {
+                    for (let i = 0; i < particles.length; i++) {
+                        const p = particles[i];
+                        if (!p.isTargeted && p.cooldown <= 0) {
+                            candidate = p;
+                            candidate.val = neededSymbol;
+                            break;
+                        }
+                    }
+                }
+
+                if (candidate) {
+                    candidate.isTargeted = true;
+                    candidate.slotIndex = slotIdx;
+                    candidate.targetX = target.x;
+                    candidate.targetY = target.y;
+                    activeSlots[slotIdx] = candidate;
+                }
+            });
+        }
+
+        let lastSecond = -1;
+        let lastTime = performance.now();
+
+        function animate(now) {
+            const dt = Math.min((now - lastTime) / 16.667, 3);
+            lastTime = now;
+
+            const currentSecond = Math.floor(Date.now() / 1000) % 60;
+            if (currentSecond !== lastSecond) {
+                lastSecond = currentSecond;
+                recycleAndAssignClock();
+            }
+
+            // Effacement total à chaque frame : aucune marque résiduelle possible sur OLED
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update(dt);
+                particles[i].draw();
+            }
+
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(animate);
+        }
+
+        // Événements Pointeur
+        window.addEventListener('pointermove', (e) => {
+            pointer.x = e.clientX;
+            pointer.y = e.clientY;
+            pointer.active = true;
+        });
+        window.addEventListener('pointerleave', () => { pointer.active = false; });
+        window.addEventListener('resize', resizeCanvas);
+
+        // Contrôles UI
+        document.getElementById('toggleFormatBtn').addEventListener('click', () => {
+            use24h = !use24h;
+            document.getElementById('formatStatus').textContent = use24h ? '24H' : '12H';
+            recycleAndAssignClock();
+        });
+
+        let densityIndex = 0;
+        const densities = [
+            { label: 'Standard', count: 130 },
+            { label: 'Dense', count: 240 },
+            { label: 'Épuré', count: 65 }
+        ];
+        document.getElementById('addDigitsBtn').addEventListener('click', () => {
+            densityIndex = (densityIndex + 1) % densities.length;
+            particleCount = densities[densityIndex].count;
+            document.getElementById('densityStatus').textContent = densities[densityIndex].label;
+            initParticles();
+            recycleAndAssignClock(true);
+        });
+
+        document.getElementById('toggleGlowBtn').addEventListener('click', () => {
+            glowActive = !glowActive;
+            const status = document.getElementById('glowStatus');
+            status.textContent = glowActive ? 'Activé' : 'Désactivé';
+            status.className = glowActive ? 'text-emerald-400 font-bold' : 'text-gray-500 font-bold';
+            fieldGlow.style.opacity = glowActive ? '0.6' : '0';
+        });
+
+        document.getElementById('toggleTrailBtn').addEventListener('click', () => {
+            trailActive = !trailActive;
+            const status = document.getElementById('trailStatus');
+            status.textContent = trailActive ? 'Activé' : 'Désactivé';
+            status.className = trailActive ? 'text-amber-400 font-bold' : 'text-gray-500 font-bold';
+        });
+
+        document.getElementById('toggleTypeBtn').addEventListener('click', () => {
+            animType = animType === 1 ? 2 : 1;
+            const status = document.getElementById('animStatus');
+            status.textContent = animType === 1 ? 'Simple' : 'Tous';
+            status.className = animType === 2 ? 'text-violet-400 font-bold' : 'text-orange-400 font-bold';
+        });
+
+        document.fonts.ready.then(() => {
+            symbols.forEach(sym => {
+                getGlowSprite(sym, '#ffffff', true);
+                colors.forEach(col => getGlowSprite(sym, col, false));
+            });
+        });
+
+        resizeCanvas();
+        initParticles();
+        recycleAndAssignClock(true);
+        requestAnimationFrame(animate);
+    </script>
+</body>
+
+</html>
