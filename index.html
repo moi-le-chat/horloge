@@ -3,13 +3,15 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Horloge</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
-        html, body {
+        html,
+        body {
             width: 100%;
             height: 100dvh;
             margin: 0;
@@ -543,13 +545,13 @@
 
         function updateTargetPositions() {
             // Garantie d'une marge latérale de 12 % sur mobile pour éviter tout débordement
-            const isMobile = width < 640;
+            const isMobile = width < 640 || height < 500;
             const usableWidth = width * (isMobile ? 0.88 : 0.82);
             const spacingRatio = 0.82;
             const colonRatio = 0.50;
             // Largeur totale = (6 * spacingRatio + 2 * colonRatio) * fontSize = 5.92 * fontSize
             const maxFittedFontSize = usableWidth / (6 * spacingRatio + 2 * colonRatio);
-            const heightLimit = height * 0.25;
+            const heightLimit = height * 0.14;
 
             currentTargetFontSize = Math.min(maxFittedFontSize, heightLimit, 68);
             const spacing = currentTargetFontSize * spacingRatio;
