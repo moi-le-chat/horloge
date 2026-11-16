@@ -369,7 +369,8 @@
                 this.y = Math.random() * height;
                 this.vx = (Math.random() - 0.5) * 3;
                 this.vy = (Math.random() - 0.5) * 3;
-                this.baseSize = Math.random() * 14 + 13;
+                const isSmallScreen = width < 640 || height < 500;
+                this.baseSize = isSmallScreen ? (Math.random() * 6 + 7) : (Math.random() * 14 + 13);
                 this.size = this.baseSize;
                 this.color = colors[Math.floor(Math.random() * colors.length)];
                 this.alpha = Math.random() * 0.5 + 0.35;
@@ -421,7 +422,7 @@
                 const dx = this.x - closestX;
                 const dy = this.y - closestY;
                 const distSq = dx * dx + dy * dy;
-                const influenceRadius = width < 640 ? 50 : 75;
+                const influenceRadius = (width < 640 || height < 500) ? 28 : 75;
 
                 if (distSq <= 0.001) {
                     const dLeft = Math.abs(this.x - fieldBounds.minX);
@@ -553,7 +554,8 @@
             const maxFittedFontSize = usableWidth / (6 * spacingRatio + 2 * colonRatio);
             const heightLimit = height * 0.14;
 
-            currentTargetFontSize = Math.min(maxFittedFontSize, heightLimit, 68);
+            const maxFont = isMobile ? 32 : 68;
+            currentTargetFontSize = Math.min(maxFittedFontSize, heightLimit, maxFont);
             const spacing = currentTargetFontSize * spacingRatio;
             const colonSpacing = currentTargetFontSize * colonRatio;
 
