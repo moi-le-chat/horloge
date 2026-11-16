@@ -92,10 +92,10 @@
                 <span id="customDensityVal"
                     class="mono font-bold text-white bg-purple-500/20 px-2 py-0.5 rounded">130</span>
             </div>
-            <input type="range" id="densitySlider" min="30" max="450" step="5" value="130" class="w-full my-1">
+            <input type="range" id="densitySlider" min="30" max="4500" step="5" value="130" class="w-full my-1">
             <div class="flex justify-between text-[10px] text-gray-400">
                 <span>Minimal (30)</span>
-                <span>Extrême (450)</span>
+                <span>Extrême (4500)</span>
             </div>
         </div>
 
@@ -282,8 +282,8 @@
 
         const spriteCache = new Map();
 
-        function getGlowSprite(val, color, isTargeted) {
-            const key = `${val}_${isTargeted ? 'white' : color}`;
+        function getSymbolSprite(val, color, isTargeted, withGlow) {
+            const key = `${val}_${isTargeted ? 'white' : color}_${withGlow ? 'glow' : 'flat'}`;
             if (spriteCache.has(key)) return spriteCache.get(key);
 
             const size = 128;
@@ -297,16 +297,21 @@
             oCtx.textAlign = 'center';
             oCtx.textBaseline = 'middle';
 
-            if (isTargeted) {
-                oCtx.shadowColor = 'rgba(199, 210, 254, 0.75)';
-                oCtx.shadowBlur = 12;
-                oCtx.fillStyle = '#ffffff';
-                oCtx.fillText(val, size / 2, size / 2);
+            if (withGlow) {
+                if (isTargeted) {
+                    oCtx.shadowColor = 'rgba(199, 210, 254, 0.75)';
+                    oCtx.shadowBlur = 12;
+                    oCtx.fillStyle = '#ffffff';
+                    oCtx.fillText(val, size / 2, size / 2);
+                } else {
+                    oCtx.shadowColor = color;
+                    oCtx.shadowBlur = 14;
+                    oCtx.fillStyle = color;
+                    oCtx.fillText(val, size / 2, size / 2);
+                    oCtx.fillText(val, size / 2, size / 2);
+                }
             } else {
-                oCtx.shadowColor = color;
-                oCtx.shadowBlur = 14;
-                oCtx.fillStyle = color;
-                oCtx.fillText(val, size / 2, size / 2);
+                oCtx.fillStyle = isTargeted ? '#ffffff' : color;
                 oCtx.fillText(val, size / 2, size / 2);
             }
 
@@ -391,24 +396,43 @@
                 const dx = this.x - closestX;
                 const dy = this.y - closestY;
                 const distSq = dx * dx + dy * dy;
-                const influenceRadius = 70;
+                const influenceRadius = 75;
 
-                if (distSq < influenceRadius * influenceRadius && distSq > 0.001) {
+                if (distSq <= 0.001) {
+                    const dLeft = Math.abs(this.x - fieldBounds.minX);
+                    const dRight = Math.abs(fieldBounds.maxX - this.x);
+                    const dTop = Math.abs(this.y - fieldBounds.minY);
+                    const dBottom = Math.abs(fieldBounds.maxY - this.y);
+                    const minD = Math.min(dLeft, dRight, dTop, dBottom);
+
+                    if (minD === dLeft) { this.x = fieldBounds.minX - 2; this.vx = -Math.abs(this.vx); }
+                    else if (minD === dRight) { this.x = fieldBounds.maxX + 2; this.vx = Math.abs(this.vx); }
+                    else if (minD === dTop) { this.y = fieldBounds.minY - 2; this.vy = -Math.abs(this.vy); }
+                    else { this.y = fieldBounds.maxY + 2; this.vy = Math.abs(this.vy); }
+                }
+                else if (distSq < influenceRadius * influenceRadius) {
                     const dist = Math.sqrt(distSq);
-                    const factor = (1 - dist / influenceRadius) * dt;
+                    const ratio = 1 - dist / influenceRadius;
+                    const factor = ratio * dt;
                     const nx = dx / dist;
                     const ny = dy / dist;
                     const tx = -ny;
                     const ty = nx;
                     const dir = (this.vx * tx + this.vy * ty) >= 0 ? 1 : -1;
 
-                    this.vx += (nx * 0.8 + tx * dir * 0.6) * factor;
-                    this.vy += (ny * 0.8 + ty * dir * 0.6) * factor;
-                    this.vx *= 0.96;
-                    this.vy *= 0.96;
+                    this.vx += (nx * (1.2 + ratio * 3.5) + tx * dir * 0.5) * factor;
+                    this.vy += (ny * (1.2 + ratio * 3.5) + ty * dir * 0.5) * factor;
+
+                    const currentSpeedSq = this.vx * this.vx + this.vy * this.vy;
+                    if (currentSpeedSq > 6.25) {
+                        const drag = Math.pow(0.95, dt);
+                        this.vx *= drag;
+                        this.vy *= drag;
+                    }
                 }
 
-                if (pointer.active) {
+                const isUiVisible = !uiContainer.classList.contains('ui-hidden');
+                if (pointer.active && isUiVisible) {
                     const mdx = this.x - pointer.x;
                     const mdy = this.y - pointer.y;
                     const mDistSq = mdx * mdx + mdy * mdy;
@@ -424,16 +448,19 @@
                 this.y += this.vy * dt;
 
                 const speedSq = this.vx * this.vx + this.vy * this.vy;
-                if (speedSq > 144) {
-                    this.vx *= 0.92;
-                    this.vy *= 0.92;
+                if (speedSq > 9) {
+                    const airDrag = Math.pow(0.975, dt);
+                    this.vx *= airDrag;
+                    this.vy *= airDrag;
                 }
 
-                if (this.x < 20) { this.x = 20; this.vx *= -1; }
-                else if (this.x > width - 20) { this.x = width - 20; this.vx *= -1; }
+                const bounceFactor = speedSq > 6.25 ? 0.65 : 1;
 
-                if (this.y < 20) { this.y = 20; this.vy *= -1; }
-                else if (this.y > height - 20) { this.y = height - 20; this.vy *= -1; }
+                if (this.x < 20) { this.x = 20; this.vx = Math.abs(this.vx) * bounceFactor; }
+                else if (this.x > width - 20) { this.x = width - 20; this.vx = -Math.abs(this.vx) * bounceFactor; }
+
+                if (this.y < 20) { this.y = 20; this.vy = Math.abs(this.vy) * bounceFactor; }
+                else if (this.y > height - 20) { this.y = height - 20; this.vy = -Math.abs(this.vy) * bounceFactor; }
 
                 const relax = 1 - Math.pow(0.92, dt);
                 this.size += (this.baseSize - this.size) * relax;
@@ -446,16 +473,10 @@
                 if (!this.isTargeted) ctx.rotate(angle);
                 ctx.globalAlpha = alpha;
 
-                if (glowActive) {
-                    const sprite = getGlowSprite(this.val, this.color, this.isTargeted);
-                    const scale = size / sprite.baseFont;
-                    const drawSize = sprite.boxSize * scale;
-                    ctx.drawImage(sprite.canvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
-                } else {
-                    ctx.font = `${this.isTargeted ? '700' : '400'} ${size | 0}px 'JetBrains Mono', monospace`;
-                    ctx.fillStyle = this.isTargeted ? '#ffffff' : this.color;
-                    ctx.fillText(this.val, 0, 0);
-                }
+                const sprite = getSymbolSprite(this.val, this.color, this.isTargeted, glowActive);
+                const scale = size / sprite.baseFont;
+                const drawSize = sprite.boxSize * scale;
+                ctx.drawImage(sprite.canvas, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             }
@@ -744,7 +765,7 @@
             fsExitIcon.classList.toggle('hidden', !isFs);
         }
 
-        fullscreenBtn.addEventListener('click', () => {
+        function toggleFullscreen() {
             const docEl = document.documentElement;
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
                 if (docEl.requestFullscreen) {
@@ -759,6 +780,15 @@
                     document.webkitExitFullscreen();
                 }
             }
+        }
+
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'F11') {
+                e.preventDefault();
+                toggleFullscreen();
+            }
         });
 
         document.addEventListener('fullscreenchange', updateFullscreenIcons);
@@ -766,11 +796,12 @@
 
         document.fonts.ready.then(() => {
             symbols.forEach(sym => {
-                getGlowSprite(sym, '#ffffff', true);
-                colors.forEach(col => getGlowSprite(sym, col, false));
+                [true, false].forEach(withGlow => {
+                    getSymbolSprite(sym, '#ffffff', true, withGlow);
+                    colors.forEach(col => getSymbolSprite(sym, col, false, withGlow));
+                });
             });
         });
-
         applySettingsToUI();
         resizeCanvas();
         initParticles();
