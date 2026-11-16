@@ -3,19 +3,37 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Horloge</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
-        body {
+        html, body {
+            width: 100%;
+            height: 100dvh;
+            margin: 0;
+            padding: 0;
             font-family: 'Space Grotesk', sans-serif;
             background-color: #050608;
             overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
+            -webkit-touch-callout: none;
             touch-action: manipulation;
+        }
+
+        body {
+            padding-top: max(0.75rem, env(safe-area-inset-top));
+            padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+            padding-left: max(0.75rem, env(safe-area-inset-left));
+            padding-right: max(0.75rem, env(safe-area-inset-right));
+        }
+
+        @media (min-width: 640px) {
+            body {
+                padding: 1.5rem;
+            }
         }
 
         .mono {
@@ -24,15 +42,15 @@
 
         .force-field-glow {
             position: absolute;
-            width: 700px;
-            height: 350px;
-            background: radial-gradient(ellipse at center, rgba(0, 4, 253, 0.2) 0%, rgba(168, 85, 247, 0.08) 45%, transparent 70%);
+            width: min(90vw, 700px);
+            height: min(45vw, 350px);
+            background: radial-gradient(ellipse at center, rgba(0, 4, 253, 0.25) 0%, rgba(168, 85, 247, 0.1) 45%, transparent 70%);
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             pointer-events: none;
             border-radius: 50%;
-            filter: blur(50px);
+            filter: blur(40px);
             transition: opacity 0.3s ease;
         }
 
@@ -40,7 +58,7 @@
             -webkit-appearance: none;
             appearance: none;
             background: rgba(255, 255, 255, 0.15);
-            height: 6px;
+            height: 8px;
             border-radius: 999px;
             outline: none;
         }
@@ -48,8 +66,8 @@
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 16px;
-            height: 16px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             background: #c084fc;
             cursor: pointer;
@@ -57,8 +75,8 @@
         }
 
         input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             background: #c084fc;
             cursor: pointer;
@@ -74,11 +92,11 @@
     </style>
 </head>
 
-<body class="w-screen h-screen relative flex flex-col justify-between items-center text-white p-3 sm:p-6">
+<body class="relative flex flex-col justify-between items-center text-white">
 
     <div id="fieldGlow" class="force-field-glow opacity-0"></div>
 
-    <main class="absolute inset-0 w-full h-full">
+    <main class="fixed inset-0 w-full h-[100dvh]">
         <canvas id="clockCanvas" class="w-full h-full block"></canvas>
     </main>
 
@@ -86,11 +104,15 @@
         class="z-10 mt-auto w-full max-w-4xl flex flex-col items-center gap-2 transition-all duration-500 ease-out">
 
         <div id="densityPopover"
-            class="hidden flex-col gap-2 bg-[#0f111a]/95 backdrop-blur-xl border border-purple-500/30 p-3.5 rounded-2xl shadow-2xl w-64 text-xs text-gray-200 mb-1">
+            class="hidden flex-col gap-2.5 bg-[#0f111a]/95 backdrop-blur-xl border border-purple-500/30 p-4 rounded-2xl shadow-2xl w-[min(90vw,18rem)] text-xs text-gray-200 mb-1">
             <div class="flex justify-between items-center">
                 <span class="font-bold text-purple-300">Particules personnalisées</span>
-                <span id="customDensityVal"
-                    class="mono font-bold text-white bg-purple-500/20 px-2 py-0.5 rounded">130</span>
+                <div class="flex items-center gap-2">
+                    <span id="customDensityVal"
+                        class="mono font-bold text-white bg-purple-500/20 px-2 py-0.5 rounded">130</span>
+                    <button id="closePopoverBtn" aria-label="Fermer"
+                        class="sm:hidden text-gray-400 hover:text-white p-1">✕</button>
+                </div>
             </div>
             <input type="range" id="densitySlider" min="30" max="4500" step="5" value="130" class="w-full my-1">
             <div class="flex justify-between text-[10px] text-gray-400">
@@ -100,9 +122,9 @@
         </div>
 
         <footer id="controlBar"
-            class="w-full sm:w-auto flex flex-wrap gap-2 sm:gap-4 items-center justify-center bg-white/5 backdrop-blur-md border border-white/10 px-4 py-3 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-full text-xs text-gray-300 shadow-2xl">
+            class="w-full sm:w-auto flex flex-wrap gap-1.5 sm:gap-4 items-center justify-center bg-white/5 backdrop-blur-md border border-white/10 px-3 py-2.5 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-full text-[11px] sm:text-xs text-gray-300 shadow-2xl">
 
-            <div class="flex items-center gap-2 px-1">
+            <div class="flex items-center gap-2 px-1.5 py-1">
                 <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
                 <span id="timeDisplay"
                     class="mono text-xs sm:text-sm font-bold tracking-widest text-cyan-300">--:--:--</span>
@@ -111,42 +133,42 @@
             <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
 
             <button id="toggleFormatBtn"
-                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white active:bg-white/15 transition-colors cursor-pointer">
                 Format : <span id="formatStatus" class="text-indigo-400 font-bold">24H</span>
             </button>
 
             <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
 
             <button id="addDigitsBtn" title="Maintenir ou survoler pour personnaliser"
-                class="relative bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                class="relative bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white active:bg-white/15 transition-colors cursor-pointer">
                 Densité : <span id="densityStatus" class="text-purple-400 font-bold">Standard</span>
             </button>
 
             <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
 
             <button id="toggleGlowBtn"
-                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white active:bg-white/15 transition-colors cursor-pointer">
                 Glow : <span id="glowStatus" class="text-gray-500 font-bold">Désactivé</span>
             </button>
 
             <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
 
             <button id="toggleTrailBtn"
-                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white active:bg-white/15 transition-colors cursor-pointer">
                 Trail : <span id="trailStatus" class="text-gray-500 font-bold">Désactivé</span>
             </button>
 
             <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
 
             <button id="toggleTypeBtn"
-                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white active:bg-white/15 transition-colors cursor-pointer">
                 Anim : <span id="animStatus" class="text-orange-400 font-bold">Simple</span>
             </button>
 
             <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
 
             <button id="fullscreenBtn" aria-label="Plein écran"
-                class="bg-white/10 sm:bg-white/5 hover:bg-white/20 text-gray-200 hover:text-white p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5">
+                class="bg-white/10 sm:bg-white/5 hover:bg-white/20 active:bg-white/25 text-gray-200 hover:text-white px-2.5 py-1.5 sm:p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5">
                 <svg id="fsEnterIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
@@ -321,8 +343,9 @@
         }
 
         function resizeCanvas() {
-            width = window.innerWidth;
-            height = window.innerHeight;
+            const rect = canvas.getBoundingClientRect();
+            width = rect.width || window.innerWidth;
+            height = rect.height || window.innerHeight;
             dpr = Math.min(window.devicePixelRatio || 1, 2);
 
             canvas.width = width * dpr;
@@ -344,7 +367,7 @@
                 this.y = Math.random() * height;
                 this.vx = (Math.random() - 0.5) * 3;
                 this.vy = (Math.random() - 0.5) * 3;
-                this.baseSize = Math.random() * 16 + 14;
+                this.baseSize = Math.random() * 14 + 13;
                 this.size = this.baseSize;
                 this.color = colors[Math.floor(Math.random() * colors.length)];
                 this.alpha = Math.random() * 0.5 + 0.35;
@@ -396,7 +419,7 @@
                 const dx = this.x - closestX;
                 const dy = this.y - closestY;
                 const distSq = dx * dx + dy * dy;
-                const influenceRadius = 75;
+                const influenceRadius = width < 640 ? 50 : 75;
 
                 if (distSq <= 0.001) {
                     const dLeft = Math.abs(this.x - fieldBounds.minX);
@@ -455,12 +478,13 @@
                 }
 
                 const bounceFactor = speedSq > 6.25 ? 0.65 : 1;
+                const margin = width < 640 ? 14 : 20;
 
-                if (this.x < 20) { this.x = 20; this.vx = Math.abs(this.vx) * bounceFactor; }
-                else if (this.x > width - 20) { this.x = width - 20; this.vx = -Math.abs(this.vx) * bounceFactor; }
+                if (this.x < margin) { this.x = margin; this.vx = Math.abs(this.vx) * bounceFactor; }
+                else if (this.x > width - margin) { this.x = width - margin; this.vx = -Math.abs(this.vx) * bounceFactor; }
 
-                if (this.y < 20) { this.y = 20; this.vy = Math.abs(this.vy) * bounceFactor; }
-                else if (this.y > height - 20) { this.y = height - 20; this.vy = -Math.abs(this.vy) * bounceFactor; }
+                if (this.y < margin) { this.y = margin; this.vy = Math.abs(this.vy) * bounceFactor; }
+                else if (this.y > height - margin) { this.y = height - margin; this.vy = -Math.abs(this.vy) * bounceFactor; }
 
                 const relax = 1 - Math.pow(0.92, dt);
                 this.size += (this.baseSize - this.size) * relax;
@@ -518,14 +542,23 @@
         }
 
         function updateTargetPositions() {
-            const maxResponsiveSize = width < 640 ? width * 0.115 : width * 0.07;
-            currentTargetFontSize = Math.min(maxResponsiveSize, 64);
-            const spacing = currentTargetFontSize * 0.85;
-            const colonSpacing = currentTargetFontSize * 0.55;
+            // Garantie d'une marge latérale de 12 % sur mobile pour éviter tout débordement
+            const isMobile = width < 640;
+            const usableWidth = width * (isMobile ? 0.88 : 0.82);
+            const spacingRatio = 0.82;
+            const colonRatio = 0.50;
+            // Largeur totale = (6 * spacingRatio + 2 * colonRatio) * fontSize = 5.92 * fontSize
+            const maxFittedFontSize = usableWidth / (6 * spacingRatio + 2 * colonRatio);
+            const heightLimit = height * 0.25;
+
+            currentTargetFontSize = Math.min(maxFittedFontSize, heightLimit, 68);
+            const spacing = currentTargetFontSize * spacingRatio;
+            const colonSpacing = currentTargetFontSize * colonRatio;
 
             const totalWidth = (6 * spacing) + (2 * colonSpacing);
             const startX = (width - totalWidth) / 2 + spacing / 2;
-            const centerY = height / 2;
+            // Légèrement remonté sur mobile portrait pour laisser respirer la barre de contrôle en bas
+            const centerY = isMobile && height > width ? height * 0.45 : height * 0.5;
 
             targetPositions = [
                 { x: startX, y: centerY },
@@ -539,11 +572,13 @@
             ];
 
             fieldBounds = {
-                minX: targetPositions[0].x - spacing,
-                maxX: targetPositions[7].x + spacing,
-                minY: centerY - currentTargetFontSize * 0.9,
-                maxY: centerY + currentTargetFontSize * 0.9
+                minX: targetPositions[0].x - spacing * 0.85,
+                maxX: targetPositions[7].x + spacing * 0.85,
+                minY: centerY - currentTargetFontSize * 0.85,
+                maxY: centerY + currentTargetFontSize * 0.85
             };
+
+            fieldGlow.style.top = `${(centerY / height) * 100}%`;
 
             activeSlots.forEach((p, idx) => {
                 if (p && targetPositions[idx]) {
@@ -566,7 +601,7 @@
 
             const timePattern = [hStr[0], hStr[1], ':', mStr[0], mStr[1], ':', sStr[0], sStr[1]];
             const centerX = width / 2;
-            const centerY = height / 2;
+            const centerY = targetPositions[0]?.y || height / 2;
             const fullExplosion = forceAll || animType === 2;
 
             timePattern.forEach((neededSymbol, slotIdx) => {
@@ -645,13 +680,29 @@
             requestAnimationFrame(animate);
         }
 
-        window.addEventListener('pointermove', (e) => {
+        window.addEventListener('pointerdown', (e) => {
             pointer.x = e.clientX;
             pointer.y = e.clientY;
             pointer.active = true;
         });
+        window.addEventListener('pointermove', (e) => {
+            pointer.x = e.clientX;
+            pointer.y = e.clientY;
+            if (e.pointerType === 'mouse' || e.pressure > 0) {
+                pointer.active = true;
+            }
+        });
+        window.addEventListener('pointerup', (e) => {
+            if (e.pointerType !== 'mouse') pointer.active = false;
+        });
+        window.addEventListener('pointercancel', () => { pointer.active = false; });
         window.addEventListener('pointerleave', () => { pointer.active = false; });
+
         window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', resizeCanvas);
+        }
 
         document.getElementById('toggleFormatBtn').addEventListener('click', () => {
             use24h = !use24h;
@@ -662,6 +713,7 @@
 
         const addDigitsBtn = document.getElementById('addDigitsBtn');
         const densitySlider = document.getElementById('densitySlider');
+        const closePopoverBtn = document.getElementById('closePopoverBtn');
         let hoverTimer = null;
         let pressTimer = null;
         let longPressTriggered = false;
@@ -677,6 +729,8 @@
             densityPopover.classList.remove('flex');
             showUI();
         }
+
+        closePopoverBtn.addEventListener('click', closeDensityPopover);
 
         addDigitsBtn.addEventListener('pointerenter', (e) => {
             if (e.pointerType === 'mouse') {
@@ -695,7 +749,7 @@
             pressTimer = setTimeout(() => {
                 longPressTriggered = true;
                 openDensityPopover();
-            }, 500);
+            }, 450);
         });
 
         addDigitsBtn.addEventListener('pointerup', () => {
