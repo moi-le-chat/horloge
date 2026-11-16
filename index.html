@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Horloge</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -14,6 +14,8 @@
             background-color: #050608;
             overflow: hidden;
             user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
         }
 
         .mono {
@@ -33,10 +35,46 @@
             filter: blur(50px);
             transition: opacity 0.3s ease;
         }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.15);
+            height: 6px;
+            border-radius: 999px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #c084fc;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(192, 132, 252, 0.6);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #c084fc;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(192, 132, 252, 0.6);
+        }
+
+        .ui-hidden {
+            opacity: 0 !important;
+            transform: translateY(20px) !important;
+            pointer-events: none !important;
+        }
     </style>
 </head>
 
-<body class="w-screen h-screen relative flex flex-col justify-between items-center text-white p-6">
+<body class="w-screen h-screen relative flex flex-col justify-between items-center text-white p-3 sm:p-6">
 
     <div id="fieldGlow" class="force-field-glow opacity-0"></div>
 
@@ -44,33 +82,84 @@
         <canvas id="clockCanvas" class="w-full h-full block"></canvas>
     </main>
 
-    <footer
-        class="z-10 flex flex-wrap gap-3 sm:gap-4 items-center justify-center bg-white/5 backdrop-blur-md border border-white/10 px-5 py-2.5 rounded-full text-xs text-gray-300 shadow-2xl">
-        <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-            <span id="timeDisplay" class="mono text-sm font-bold tracking-widest text-cyan-300">--:--:--</span>
+    <div id="uiContainer"
+        class="z-10 mt-auto w-full max-w-4xl flex flex-col items-center gap-2 transition-all duration-500 ease-out">
+
+        <div id="densityPopover"
+            class="hidden flex-col gap-2 bg-[#0f111a]/95 backdrop-blur-xl border border-purple-500/30 p-3.5 rounded-2xl shadow-2xl w-64 text-xs text-gray-200 mb-1">
+            <div class="flex justify-between items-center">
+                <span class="font-bold text-purple-300">Particules personnalisées</span>
+                <span id="customDensityVal"
+                    class="mono font-bold text-white bg-purple-500/20 px-2 py-0.5 rounded">130</span>
+            </div>
+            <input type="range" id="densitySlider" min="30" max="450" step="5" value="130" class="w-full my-1">
+            <div class="flex justify-between text-[10px] text-gray-400">
+                <span>Minimal (30)</span>
+                <span>Extrême (450)</span>
+            </div>
         </div>
-        <div class="h-4 w-[1px] bg-white/20"></div>
-        <button id="toggleFormatBtn" class="hover:text-white transition-colors cursor-pointer">
-            Format : <span id="formatStatus" class="text-indigo-400 font-bold">24H</span>
-        </button>
-        <div class="h-4 w-[1px] bg-white/20"></div>
-        <button id="addDigitsBtn" class="hover:text-white transition-colors cursor-pointer">
-            Densité : <span id="densityStatus" class="text-purple-400 font-bold">Standard</span>
-        </button>
-        <div class="h-4 w-[1px] bg-white/20"></div>
-        <button id="toggleGlowBtn" class="hover:text-white transition-colors cursor-pointer">
-            Glow : <span id="glowStatus" class="text-gray-500 font-bold">Désactivé</span>
-        </button>
-        <div class="h-4 w-[1px] bg-white/20"></div>
-        <button id="toggleTrailBtn" class="hover:text-white transition-colors cursor-pointer">
-            Trail : <span id="trailStatus" class="text-gray-500 font-bold">Désactivé</span>
-        </button>
-        <div class="h-4 w-[1px] bg-white/20"></div>
-        <button id="toggleTypeBtn" class="hover:text-white transition-colors cursor-pointer">
-            Animation : <span id="animStatus" class="text-orange-400 font-bold">Simple</span>
-        </button>
-    </footer>
+
+        <footer id="controlBar"
+            class="w-full sm:w-auto flex flex-wrap gap-2 sm:gap-4 items-center justify-center bg-white/5 backdrop-blur-md border border-white/10 px-4 py-3 sm:px-5 sm:py-2.5 rounded-2xl sm:rounded-full text-xs text-gray-300 shadow-2xl">
+
+            <div class="flex items-center gap-2 px-1">
+                <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                <span id="timeDisplay"
+                    class="mono text-xs sm:text-sm font-bold tracking-widest text-cyan-300">--:--:--</span>
+            </div>
+
+            <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
+
+            <button id="toggleFormatBtn"
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                Format : <span id="formatStatus" class="text-indigo-400 font-bold">24H</span>
+            </button>
+
+            <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
+
+            <button id="addDigitsBtn" title="Maintenir ou survoler pour personnaliser"
+                class="relative bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                Densité : <span id="densityStatus" class="text-purple-400 font-bold">Standard</span>
+            </button>
+
+            <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
+
+            <button id="toggleGlowBtn"
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                Glow : <span id="glowStatus" class="text-gray-500 font-bold">Désactivé</span>
+            </button>
+
+            <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
+
+            <button id="toggleTrailBtn"
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                Trail : <span id="trailStatus" class="text-gray-500 font-bold">Désactivé</span>
+            </button>
+
+            <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
+
+            <button id="toggleTypeBtn"
+                class="bg-white/5 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-lg hover:text-white transition-colors cursor-pointer">
+                Anim : <span id="animStatus" class="text-orange-400 font-bold">Simple</span>
+            </button>
+
+            <div class="hidden sm:block h-4 w-[1px] bg-white/20"></div>
+
+            <button id="fullscreenBtn" aria-label="Plein écran"
+                class="bg-white/10 sm:bg-white/5 hover:bg-white/20 text-gray-200 hover:text-white p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5">
+                <svg id="fsEnterIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                    </path>
+                </svg>
+                <svg id="fsExitIcon" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 4v5H4m0 0l5-5M9 20v-5H4m0 0l5 5M15 4v5h5m0 0l-5-5M15 20v-5h5m0 0l-5 5"></path>
+                </svg>
+                <span class="sm:hidden text-[11px] font-medium">Plein écran</span>
+            </button>
+        </footer>
+    </div>
 
     <script>
         const canvas = document.getElementById('clockCanvas');
@@ -82,12 +171,53 @@
         let height = window.innerHeight;
         let dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-        // Paramètres
-        let use24h = true;
-        let particleCount = 130;
-        let glowActive = false;
-        let trailActive = false;
-        let animType = 1;
+        const STORAGE_KEY = 'horloge_particules_prefs_v1';
+
+        const defaultPrefs = {
+            use24h: true,
+            densityIndex: 0,
+            particleCount: 130,
+            isCustomDensity: false,
+            glowActive: false,
+            trailActive: false,
+            animType: 1
+        };
+
+        function loadPreferences() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                return saved ? { ...defaultPrefs, ...JSON.parse(saved) } : { ...defaultPrefs };
+            } catch (e) {
+                return { ...defaultPrefs };
+            }
+        }
+
+        function savePreferences() {
+            try {
+                const prefs = {
+                    use24h,
+                    densityIndex,
+                    particleCount,
+                    isCustomDensity,
+                    glowActive,
+                    trailActive,
+                    animType
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+            } catch (e) {
+                // Ignore les erreurs de stockage privé
+            }
+        }
+
+        const prefs = loadPreferences();
+        let use24h = prefs.use24h;
+        let densityIndex = prefs.densityIndex;
+        let particleCount = prefs.particleCount;
+        let isCustomDensity = prefs.isCustomDensity;
+        let glowActive = prefs.glowActive;
+        let trailActive = prefs.trailActive;
+        let animType = prefs.animType;
+
         let particles = [];
         let targetPositions = [];
         let activeSlots = new Array(8).fill(null);
@@ -97,6 +227,58 @@
         const pointer = { x: -1000, y: -1000, active: false };
         const colors = ['#38bdf8', '#818cf8', '#c084fc', '#f472b6', '#34d399', '#fbbf24', '#a78bfa', '#94a3b8'];
         const symbols = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':'];
+
+        const densities = [
+            { label: 'Standard', count: 130 },
+            { label: 'Dense', count: 240 },
+            { label: 'Épuré', count: 65 }
+        ];
+
+        function applySettingsToUI() {
+            document.getElementById('formatStatus').textContent = use24h ? '24H' : '12H';
+
+            const densityStatus = document.getElementById('densityStatus');
+            const slider = document.getElementById('densitySlider');
+            const customVal = document.getElementById('customDensityVal');
+            slider.value = particleCount;
+            customVal.textContent = particleCount;
+
+            if (isCustomDensity) {
+                densityStatus.textContent = `Perso (${particleCount})`;
+            } else {
+                densityStatus.textContent = densities[densityIndex]?.label || 'Standard';
+            }
+
+            const glowStatus = document.getElementById('glowStatus');
+            glowStatus.textContent = glowActive ? 'Activé' : 'Désactivé';
+            glowStatus.className = glowActive ? 'text-emerald-400 font-bold' : 'text-gray-500 font-bold';
+            fieldGlow.style.opacity = glowActive ? '0.6' : '0';
+
+            const trailStatus = document.getElementById('trailStatus');
+            trailStatus.textContent = trailActive ? 'Activé' : 'Désactivé';
+            trailStatus.className = trailActive ? 'text-amber-400 font-bold' : 'text-gray-500 font-bold';
+
+            const animStatus = document.getElementById('animStatus');
+            animStatus.textContent = animType === 1 ? 'Simple' : 'Tous';
+            animStatus.className = animType === 2 ? 'text-violet-400 font-bold' : 'text-orange-400 font-bold';
+        }
+
+        const uiContainer = document.getElementById('uiContainer');
+        const densityPopover = document.getElementById('densityPopover');
+        let inactivityTimer = null;
+
+        function showUI() {
+            uiContainer.classList.remove('ui-hidden');
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                if (!densityPopover.classList.contains('hidden')) return;
+                uiContainer.classList.add('ui-hidden');
+            }, 3500);
+        }
+
+        ['pointermove', 'pointerdown', 'touchstart', 'keydown'].forEach(evt => {
+            window.addEventListener(evt, showUI, { passive: true });
+        });
 
         const spriteCache = new Map();
 
@@ -116,13 +298,11 @@
             oCtx.textBaseline = 'middle';
 
             if (isTargeted) {
-                // Glow doux et lisible pour les chiffres blancs du milieu
                 oCtx.shadowColor = 'rgba(199, 210, 254, 0.75)';
                 oCtx.shadowBlur = 12;
                 oCtx.fillStyle = '#ffffff';
                 oCtx.fillText(val, size / 2, size / 2);
             } else {
-                // Glow coloré pour les particules flottantes
                 oCtx.shadowColor = color;
                 oCtx.shadowBlur = 14;
                 oCtx.fillStyle = color;
@@ -149,7 +329,7 @@
 
         class Particle {
             constructor() {
-                this.history = []; // Stocke les positions passées pour un trail sans résidu OLED
+                this.history = [];
                 this.reset();
             }
 
@@ -185,7 +365,6 @@
             }
 
             update(dt) {
-                // Enregistrement de la trajectoire si le trail est actif
                 if (trailActive) {
                     this.history.push({ x: this.x, y: this.y, angle: this.angle, size: this.size });
                     if (this.history.length > 6) {
@@ -282,7 +461,6 @@
             }
 
             draw() {
-                // Dessin de la traînée (fantômes géométriques avec alpha exact)
                 if (trailActive && this.history.length > 0) {
                     const len = this.history.length;
                     for (let i = 0; i < len; i++) {
@@ -291,8 +469,6 @@
                         this.drawSymbol(pos.x, pos.y, pos.angle, pos.size, trailAlpha);
                     }
                 }
-
-                // Dessin de la particule principale
                 this.drawSymbol(this.x, this.y, this.angle, this.size, this.alpha);
             }
         }
@@ -302,8 +478,27 @@
             activeSlots.fill(null);
         }
 
+        function adjustParticleCount(newCount) {
+            particleCount = newCount;
+            if (particles.length < particleCount) {
+                const diff = particleCount - particles.length;
+                for (let i = 0; i < diff; i++) {
+                    particles.push(new Particle());
+                }
+            } else if (particles.length > particleCount) {
+                let toRemove = particles.length - particleCount;
+                for (let i = particles.length - 1; i >= 0 && toRemove > 0; i--) {
+                    if (!particles[i].isTargeted) {
+                        particles.splice(i, 1);
+                        toRemove--;
+                    }
+                }
+            }
+        }
+
         function updateTargetPositions() {
-            currentTargetFontSize = Math.min(width * 0.07, 64);
+            const maxResponsiveSize = width < 640 ? width * 0.115 : width * 0.07;
+            currentTargetFontSize = Math.min(maxResponsiveSize, 64);
             const spacing = currentTargetFontSize * 0.85;
             const colonSpacing = currentTargetFontSize * 0.55;
 
@@ -416,9 +611,7 @@
                 recycleAndAssignClock();
             }
 
-            // Effacement total à chaque frame : aucune marque résiduelle possible sur OLED
             ctx.clearRect(0, 0, width, height);
-
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
@@ -431,7 +624,6 @@
             requestAnimationFrame(animate);
         }
 
-        // Événements Pointeur
         window.addEventListener('pointermove', (e) => {
             pointer.x = e.clientX;
             pointer.y = e.clientY;
@@ -440,48 +632,137 @@
         window.addEventListener('pointerleave', () => { pointer.active = false; });
         window.addEventListener('resize', resizeCanvas);
 
-        // Contrôles UI
         document.getElementById('toggleFormatBtn').addEventListener('click', () => {
             use24h = !use24h;
-            document.getElementById('formatStatus').textContent = use24h ? '24H' : '12H';
+            applySettingsToUI();
+            savePreferences();
             recycleAndAssignClock();
         });
 
-        let densityIndex = 0;
-        const densities = [
-            { label: 'Standard', count: 130 },
-            { label: 'Dense', count: 240 },
-            { label: 'Épuré', count: 65 }
-        ];
-        document.getElementById('addDigitsBtn').addEventListener('click', () => {
+        const addDigitsBtn = document.getElementById('addDigitsBtn');
+        const densitySlider = document.getElementById('densitySlider');
+        let hoverTimer = null;
+        let pressTimer = null;
+        let longPressTriggered = false;
+
+        function openDensityPopover() {
+            densityPopover.classList.remove('hidden');
+            densityPopover.classList.add('flex');
+            clearTimeout(inactivityTimer);
+        }
+
+        function closeDensityPopover() {
+            densityPopover.classList.add('hidden');
+            densityPopover.classList.remove('flex');
+            showUI();
+        }
+
+        addDigitsBtn.addEventListener('pointerenter', (e) => {
+            if (e.pointerType === 'mouse') {
+                hoverTimer = setTimeout(openDensityPopover, 600);
+            }
+        });
+
+        addDigitsBtn.addEventListener('pointerleave', (e) => {
+            if (e.pointerType === 'mouse') {
+                clearTimeout(hoverTimer);
+            }
+        });
+
+        addDigitsBtn.addEventListener('pointerdown', () => {
+            longPressTriggered = false;
+            pressTimer = setTimeout(() => {
+                longPressTriggered = true;
+                openDensityPopover();
+            }, 500);
+        });
+
+        addDigitsBtn.addEventListener('pointerup', () => {
+            clearTimeout(pressTimer);
+        });
+
+        addDigitsBtn.addEventListener('pointercancel', () => {
+            clearTimeout(pressTimer);
+        });
+
+        addDigitsBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        addDigitsBtn.addEventListener('click', () => {
+            if (longPressTriggered) {
+                longPressTriggered = false;
+                return;
+            }
+            isCustomDensity = false;
             densityIndex = (densityIndex + 1) % densities.length;
-            particleCount = densities[densityIndex].count;
-            document.getElementById('densityStatus').textContent = densities[densityIndex].label;
-            initParticles();
+            adjustParticleCount(densities[densityIndex].count);
+            applySettingsToUI();
+            savePreferences();
             recycleAndAssignClock(true);
+        });
+
+        densitySlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            isCustomDensity = true;
+            adjustParticleCount(val);
+            applySettingsToUI();
+            savePreferences();
+        });
+
+        window.addEventListener('pointerdown', (e) => {
+            if (!densityPopover.classList.contains('hidden')) {
+                if (!densityPopover.contains(e.target) && !addDigitsBtn.contains(e.target)) {
+                    closeDensityPopover();
+                }
+            }
         });
 
         document.getElementById('toggleGlowBtn').addEventListener('click', () => {
             glowActive = !glowActive;
-            const status = document.getElementById('glowStatus');
-            status.textContent = glowActive ? 'Activé' : 'Désactivé';
-            status.className = glowActive ? 'text-emerald-400 font-bold' : 'text-gray-500 font-bold';
-            fieldGlow.style.opacity = glowActive ? '0.6' : '0';
+            applySettingsToUI();
+            savePreferences();
         });
 
         document.getElementById('toggleTrailBtn').addEventListener('click', () => {
             trailActive = !trailActive;
-            const status = document.getElementById('trailStatus');
-            status.textContent = trailActive ? 'Activé' : 'Désactivé';
-            status.className = trailActive ? 'text-amber-400 font-bold' : 'text-gray-500 font-bold';
+            applySettingsToUI();
+            savePreferences();
         });
 
         document.getElementById('toggleTypeBtn').addEventListener('click', () => {
             animType = animType === 1 ? 2 : 1;
-            const status = document.getElementById('animStatus');
-            status.textContent = animType === 1 ? 'Simple' : 'Tous';
-            status.className = animType === 2 ? 'text-violet-400 font-bold' : 'text-orange-400 font-bold';
+            applySettingsToUI();
+            savePreferences();
         });
+
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const fsEnterIcon = document.getElementById('fsEnterIcon');
+        const fsExitIcon = document.getElementById('fsExitIcon');
+
+        function updateFullscreenIcons() {
+            const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            fsEnterIcon.classList.toggle('hidden', isFs);
+            fsExitIcon.classList.toggle('hidden', !isFs);
+        }
+
+        fullscreenBtn.addEventListener('click', () => {
+            const docEl = document.documentElement;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (docEl.requestFullscreen) {
+                    docEl.requestFullscreen().catch(() => { });
+                } else if (docEl.webkitRequestFullscreen) {
+                    docEl.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => { });
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        });
+
+        document.addEventListener('fullscreenchange', updateFullscreenIcons);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenIcons);
 
         document.fonts.ready.then(() => {
             symbols.forEach(sym => {
@@ -490,9 +771,11 @@
             });
         });
 
+        applySettingsToUI();
         resizeCanvas();
         initParticles();
         recycleAndAssignClock(true);
+        showUI();
         requestAnimationFrame(animate);
     </script>
 </body>
